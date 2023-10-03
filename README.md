@@ -2,7 +2,7 @@
 
 Prometheus exporter for FreeSWITCH
 
-## Build
+## Building
 
 1. Build FreeSWITCH
 2. Install mod_prometheus dependencies
@@ -23,6 +23,19 @@ export PKG_CONFIG_PATH=/usr/local/freeswitch/lib/pkgconfig
 ./configure
 make
 make install
+```
+
+## Configuration
+
+##### prometheus.conf.xml
+
+```xml
+<configuration name="prometheus.conf" description="PROMETHEUS Module">
+  <settings>
+    <param name="listen-ip" value="0.0.0.0"/>
+    <param name="listen-port" value="8088"/>
+  </settings>
+</configuration>
 ```
 
 ## Metrics

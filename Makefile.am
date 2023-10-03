@@ -18,3 +18,7 @@ all: error
 error:
     $(error You must install libmicrohttpd and libmicrohttpd-dev to build this module)
 endif
+
+install-data-local:
+	test -d $(confdir)
+	$(INSTALL) -m 644 conf/autoload_configs/prometheus.conf.xml $(confdir)/autoload_configs/prometheus.conf.xml

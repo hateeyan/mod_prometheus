@@ -68,6 +68,8 @@ SWITCH_MODULE_DEFINITION(mod_prometheus, mod_prometheus_load, mod_prometheus_shu
 
 static struct {
 	struct MHD_Daemon *daemon;
+	char *ip;
+	uint16_t port;
 } globals;
 
 static void prometheus_asprintf(char **buf, const char *fmt, ...)
@@ -293,13 +295,37 @@ static int prometheus_handler(void *cls, struct MHD_Connection *connection, cons
 	return ret;
 }
 
+static switch_xml_config_item_t configs[] = {
+	SWITCH_CONFIG_ITEM("listen-ip", SWITCH_CONFIG_STRING, CONFIG_REQUIRED, &globals.ip, "0.0.0.0", NULL, "ip address",
+					   "ip address"),
+	SWITCH_CONFIG_ITEM("listen-port", SWITCH_CONFIG_INT, CONFIG_REQUIRED, &globals.port, 8088, NULL, "listening port",
+					   "listening port"),
+	SWITCH_CONFIG_ITEM_END()};
+
+static switch_status_t do_config()
+{
+	if (switch_xml_config_parse_module_settings("prometheus.conf", SWITCH_FALSE, configs) != SWITCH_STATUS_SUCCESS) {
+		switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_WARNING, "No config file found\n");
+		return SWITCH_STATUS_FALSE;
+	}
+	return SWITCH_STATUS_SUCCESS;
+}
+
 SWITCH_MODULE_LOAD_FUNCTION(mod_prometheus_load)
 {
+	struct sockaddr_in addr;
 	*module_interface = switch_loadable_module_create_module_interface(pool, modname);
 
-	globals.daemon = MHD_start_daemon(MHD_USE_EPOLL_INTERNAL_THREAD, 8088,
+	if (do_config() != SWITCH_STATUS_SUCCESS) return SWITCH_STATUS_FALSE;
+
+	addr.sin_family = AF_INET;
+	addr.sin_port = htons(globals.port);
+	addr.sin_addr.s_addr = inet_addr(globals.ip);
+
+	globals.daemon = MHD_start_daemon(MHD_USE_EPOLL_INTERNAL_THREAD, globals.port,
 									  NULL, NULL,
 									  (MHD_AccessHandlerCallback)&prometheus_handler, NULL,
+									  MHD_OPTION_SOCK_ADDR, (struct sockaddr *)(&addr),
 									  MHD_OPTION_END);
 	if (globals.daemon == NULL) return SWITCH_STATUS_FALSE;
 
