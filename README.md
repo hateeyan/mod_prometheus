@@ -34,6 +34,7 @@ make install
   <settings>
     <param name="listen-ip" value="0.0.0.0"/>
     <param name="listen-port" value="8088"/>
+    <param name="metrics-path" value="/metrics"/>
   </settings>
 </configuration>
 ```

@@ -70,6 +70,7 @@ static struct {
 	struct MHD_Daemon *daemon;
 	char *ip;
 	uint16_t port;
+	char *metrics_path;
 } globals;
 
 static void prometheus_asprintf(char **buf, const char *fmt, ...)
@@ -282,6 +283,7 @@ static int prometheus_handler(void *cls, struct MHD_Connection *connection, cons
 	char *body = NULL;
 
 	if (strcmp(method, MHD_HTTP_METHOD_GET) != 0) { return MHD_NO; }
+	if (strcmp(url, globals.metrics_path) != 0) { return MHD_NO; }
 
 	metric_core(&body);
 	metric_sessions(&body);
@@ -300,6 +302,8 @@ static switch_xml_config_item_t configs[] = {
 					   "ip address"),
 	SWITCH_CONFIG_ITEM("listen-port", SWITCH_CONFIG_INT, CONFIG_REQUIRED, &globals.port, 8088, NULL, "listening port",
 					   "listening port"),
+	SWITCH_CONFIG_ITEM("metrics-path", SWITCH_CONFIG_STRING, CONFIG_RELOADABLE, &globals.metrics_path, "/metrics", NULL, "metrics path",
+					   "Path under which to expose metrics"),
 	SWITCH_CONFIG_ITEM_END()};
 
 static switch_status_t do_config()
@@ -322,6 +326,8 @@ SWITCH_MODULE_LOAD_FUNCTION(mod_prometheus_load)
 	addr.sin_port = htons(globals.port);
 	addr.sin_addr.s_addr = inet_addr(globals.ip);
 
+	switch_log_printf(SWITCH_CHANNEL_LOG, SWITCH_LOG_INFO, "Starting HTTP server[%s:%d], path %s\n",
+					  globals.ip, globals.port, globals.metrics_path);
 	globals.daemon = MHD_start_daemon(MHD_USE_EPOLL_INTERNAL_THREAD, globals.port,
 									  NULL, NULL,
 									  (MHD_AccessHandlerCallback)&prometheus_handler, NULL,

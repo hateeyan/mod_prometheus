@@ -21,4 +21,4 @@ endif
 
 install-data-local:
 	test -d $(confdir)
-	$(INSTALL) -m 644 conf/autoload_configs/prometheus.conf.xml $(confdir)/autoload_configs/prometheus.conf.xml
+	test -f $(confdir)/autoload_configs/prometheus.conf.xml || $(INSTALL) -m 644 conf/autoload_configs/prometheus.conf.xml $(confdir)/autoload_configs/prometheus.conf.xml
