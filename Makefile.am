@@ -3,6 +3,8 @@ AUTOMAKE_OPTIONS = foreign subdir-objects
 MODNAME=mod_prometheus
 
 LIBS := $(if $(switch_builddir),$(switch_builddir)/libfreeswitch.la,)
+WARN_CFLAGS = @WARN_CFLAGS@
+AM_CFLAGS = $(WARN_CFLAGS)
 
 if HAVE_MICROHTTPD
 

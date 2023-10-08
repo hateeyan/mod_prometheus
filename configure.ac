@@ -36,6 +36,8 @@ AS_VAR_COPY([$1], [pkg_cv_][$1])
 AS_VAR_IF([$1], [""], [$4], [$3])dnl
 ])# PKG_CHECK_VAR
 
+WARN_CFLAGS="-Wall -Werror"
+
 PKG_CHECK_MODULES([FREESWITCH],[freeswitch],[],[])
 PKG_CHECK_VAR([moddir],[freeswitch],[modulesdir])
 PKG_CHECK_VAR([confdir],[freeswitch],[confdir])
@@ -56,6 +58,7 @@ AC_SUBST(FREESWITCH_CFLAGS)
 AC_SUBST(FREESWITCH_LDFLAGS)
 AC_SUBST(moddir)
 AC_SUBST(confdir)
+AC_SUBST(WARN_CFLAGS)
 
 AC_CONFIG_FILES([Makefile])
 

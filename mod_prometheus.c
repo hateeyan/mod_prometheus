@@ -34,7 +34,7 @@
 	"freeswitch_sofia_profile_info{profile=\"%s\",state=\"%s\"} 1\n"
 
 #define PROMETHEUS_FMT_SOFIA_PROFILE_CALLS_TOTAL_S                                                     \
-	"# HELP freeswitch_sofia_profile_calls_total Total number of profile calls.\n"                               \
+	"# HELP freeswitch_sofia_profile_calls_total Total number of profile calls.\n"                     \
     "# TYPE freeswitch_sofia_profile_calls_total counter\n%s"
 
 #define PROMETHEUS_FMT_SOFIA_PROFILE_CALLS_TOTAL                                                       \
@@ -145,7 +145,7 @@ static void metric_sofia_gateway(char **buf)
 	}
 
 	for (gateway = switch_xml_child(xml, "gateway"); gateway; gateway = gateway->next) {
-		char *name, *profile, *state, *status;
+		char *name = NULL, *profile = NULL, *state = NULL, *status = NULL;
 
 		if ((param = switch_xml_child(gateway, "name"))) name = param->txt;
 		if ((param = switch_xml_child(gateway, "profile"))) profile = param->txt;
@@ -239,7 +239,7 @@ static void metric_sofia(char **buf)
 {
 	switch_xml_t xml = NULL, profile, param;
 	const char *err;
-	const char *name, *state;
+	const char *name = NULL, *state = NULL;
 	char *buf_info = NULL, *buf_calls = NULL, *buf_reg = NULL;
 	switch_stream_handle_t stream;
 
