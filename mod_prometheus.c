@@ -6,57 +6,57 @@
 	"# TYPE freeswitch_uptime gauge\n"                                                                 \
 	"freeswitch_uptime %lu\n"                                                                          \
 	"# HELP freeswitch_version FreeSWITCH version.\n"                                                  \
-    "# TYPE freeswitch_version gauge\n"                                                                \
+	"# TYPE freeswitch_version gauge\n"                                                                \
 	"freeswitch_version{major=\"%s\",minor=\"%s\",micro=\"%s\",version=\"%s\"} 1\n"                    \
 	"# HELP freeswitch_info Information about the FreeSWITCH.\n"                                       \
-    "# TYPE freeswitch_info gauge\n"                                                                   \
+	"# TYPE freeswitch_info gauge\n"                                                                   \
 	"freeswitch_info{switchname=\"%s\",hostname=\"%s\",uuid=\"%s\",domain=\"%s\"} 1\n"
 
 #define PROMETHEUS_FMT_SESSION                                                                         \
 	"# HELP freeswitch_sessions_total Total sessions since startup.\n"                                 \
-    "# TYPE freeswitch_sessions_total counter\n"                                                       \
+	"# TYPE freeswitch_sessions_total counter\n"                                                       \
 	"freeswitch_sessions_total %lu\n"                                                                  \
 	"# HELP freeswitch_sessions_active Number of active sessions.\n"                                   \
-    "# TYPE freeswitch_sessions_active gauge\n"                                                        \
+	"# TYPE freeswitch_sessions_active gauge\n"                                                        \
 	"freeswitch_sessions_active %u\n"                                                                  \
 	"# HELP freeswitch_sessions_peak Peak session count.\n"                                            \
-    "# TYPE freeswitch_sessions_peak gauge\n"                                                          \
+	"# TYPE freeswitch_sessions_peak gauge\n"                                                          \
 	"freeswitch_sessions_peak %u\n"                                                                    \
 	"# HELP freeswitch_sessions_max Max sessions.\n"                                                   \
-    "# TYPE freeswitch_sessions_max gauge\n"                                                           \
+	"# TYPE freeswitch_sessions_max gauge\n"                                                           \
 	"freeswitch_sessions_max %u\n"
 
 #define PROMETHEUS_FMT_SOFIA_PROFILE_INFO_S                                                            \
 	"# HELP freeswitch_sofia_profile_info Information about the sofia profile.\n"                      \
-    "# TYPE freeswitch_sofia_profile_info gauge\n%s"
+	"# TYPE freeswitch_sofia_profile_info gauge\n%s"
 
 #define PROMETHEUS_FMT_SOFIA_PROFILE_INFO                                                              \
 	"freeswitch_sofia_profile_info{profile=\"%s\",state=\"%s\"} 1\n"
 
 #define PROMETHEUS_FMT_SOFIA_PROFILE_CALLS_TOTAL_S                                                     \
 	"# HELP freeswitch_sofia_profile_calls_total Total number of profile calls.\n"                     \
-    "# TYPE freeswitch_sofia_profile_calls_total counter\n%s"
+	"# TYPE freeswitch_sofia_profile_calls_total counter\n%s"
 
 #define PROMETHEUS_FMT_SOFIA_PROFILE_CALLS_TOTAL                                                       \
 	"freeswitch_sofia_profile_calls_total{profile=\"%s\",type=\"%s\"} %s\n"
 
 #define PROMETHEUS_FMT_SOFIA_PROFILE_REGISTRATIONS_S                                                   \
 	"# HELP freeswitch_sofia_profile_registrations Current registrations.\n"                           \
-    "# TYPE freeswitch_sofia_profile_registrations gauge\n%s"
+	"# TYPE freeswitch_sofia_profile_registrations gauge\n%s"
 
 #define PROMETHEUS_FMT_SOFIA_PROFILE_REGISTRATIONS                                                     \
 	"freeswitch_sofia_profile_registrations{profile=\"%s\"} %s\n"
 
 #define PROMETHEUS_FMT_SOFIA_PROFILE_GATEWAY_INFO_S                                                    \
 	"# HELP freeswitch_sofia_profile_gateway_info Information about the sofia gateway.\n"              \
-    "# TYPE freeswitch_sofia_profile_gateway_info gauge\n%s"
+	"# TYPE freeswitch_sofia_profile_gateway_info gauge\n%s"
 
 #define PROMETHEUS_FMT_SOFIA_PROFILE_GATEWAY_INFO                                                      \
 	"freeswitch_sofia_profile_gateway_info{gateway=\"%s\",profile=\"%s\",state=\"%s\",status=\"%s\"} 1\n"
 
 #define PROMETHEUS_FMT_SOFIA_PROFILE_GATEWAY_CALLS_TOTAL_S                                             \
 	"# HELP freeswitch_sofia_profile_gateway_calls_total Total number of gateway calls.\n"             \
-    "# TYPE freeswitch_sofia_profile_gateway_calls_total counter\n%s"
+	"# TYPE freeswitch_sofia_profile_gateway_calls_total counter\n%s"
 
 #define PROMETHEUS_FMT_SOFIA_PROFILE_GATEWAY_CALLS_TOTAL                                               \
 	"freeswitch_sofia_profile_gateway_calls_total{gateway=\"%s\",profile=\"%s\",type=\"%s\"} %s\n"
@@ -291,6 +291,7 @@ static int prometheus_handler(void *cls, struct MHD_Connection *connection, cons
 	metric_sofia_gateway(&body);
 
 	response = MHD_create_response_from_buffer(strlen(body), (void *)body, MHD_RESPMEM_MUST_FREE);
+	MHD_add_response_header(response, "Content-Type", "text/plain");
 	ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
 	MHD_destroy_response(response);
 
