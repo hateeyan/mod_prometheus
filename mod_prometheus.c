@@ -61,17 +61,66 @@
 #define PROMETHEUS_FMT_SOFIA_PROFILE_GATEWAY_CALLS_TOTAL                                               \
 	"freeswitch_sofia_profile_gateway_calls_total{gateway=\"%s\",profile=\"%s\",type=\"%s\"} %s\n"
 
+#define PROMETHEUS_FMT_RTP_IN_BYTES_S                                                                  \
+	"# HELP freeswitch_rtp_in_bytes Total number of incoming rtp size in bytes.\n"                     \
+	"# TYPE freeswitch_rtp_in_bytes counter\n%s"
+
+#define PROMETHEUS_FMT_RTP_IN_BYTES                                                                    \
+	"freeswitch_rtp_in_bytes{profile=\"%s\"} %lld\n"
+
+#define PROMETHEUS_FMT_RTP_OUT_BYTES_S                                                                 \
+	"# HELP freeswitch_rtp_out_bytes Total number of outgoing rtp size in bytes.\n"                    \
+	"# TYPE freeswitch_rtp_out_bytes counter\n%s"
+
+#define PROMETHEUS_FMT_RTP_OUT_BYTES                                                                   \
+	"freeswitch_rtp_out_bytes{profile=\"%s\"} %lld\n"
+
 
 SWITCH_MODULE_LOAD_FUNCTION(mod_prometheus_load);
 SWITCH_MODULE_SHUTDOWN_FUNCTION(mod_prometheus_shutdown);
 SWITCH_MODULE_DEFINITION(mod_prometheus, mod_prometheus_load, mod_prometheus_shutdown, NULL);
+
+typedef struct prometheus_profile_s {
+	const char *name;
+	const char *direction;
+	uint64_t rtp_in_bytes;
+	uint64_t rtp_out_bytes;
+	struct prometheus_profile_s *next;
+} prometheus_profile_t;
 
 static struct {
 	struct MHD_Daemon *daemon;
 	char *ip;
 	uint16_t port;
 	char *metrics_path;
+	switch_memory_pool_t *pool;
+	prometheus_profile_t *profiles;
 } globals;
+
+static prometheus_profile_t *prometheus_get_profile_ptr(const char *name)
+{
+	prometheus_profile_t *profile;
+
+	for (profile = globals.profiles; profile; profile = profile->next) {
+		if (!strcmp(profile->name, name)) {
+			return profile;
+		}
+	}
+	return NULL;
+}
+
+static void prometheus_profile_add(prometheus_profile_t **profiles, prometheus_profile_t *profile)
+{
+	prometheus_profile_t *p = *profiles;
+
+	if (!p) {
+		*profiles = profile;
+		return;
+	}
+
+	while(p->next) p = p->next;
+	p->next = profile;
+}
 
 static void prometheus_asprintf(char **buf, const char *fmt, ...)
 {
@@ -91,7 +140,7 @@ static void prometheus_asprintf(char **buf, const char *fmt, ...)
 		strcat(all, *buf);
 		strcat(all+strlen(all), tmp);
 
-		free(tmp);
+		switch_safe_free(tmp);
 		free(*buf);
 		*buf = all;
 	} else {
@@ -170,9 +219,9 @@ static void metric_sofia_gateway(char **buf)
 	if (buf_calls) prometheus_asprintf(buf, PROMETHEUS_FMT_SOFIA_PROFILE_GATEWAY_CALLS_TOTAL_S, buf_calls);
 
 end:
-	switch_safe_free(stream.data)
-	switch_safe_free(buf_info)
-	switch_safe_free(buf_calls)
+	switch_safe_free(stream.data);
+	switch_safe_free(buf_info);
+	switch_safe_free(buf_calls);
 	if (xml) switch_xml_free(xml);
 }
 
@@ -231,7 +280,7 @@ static void metric_sofia_profile(char **buf_info, char **buf_calls, char **buf_r
 	}
 
 end:
-	switch_safe_free(stream.data)
+	switch_safe_free(stream.data);
 	if (xml) switch_xml_free(xml);
 }
 
@@ -268,11 +317,28 @@ static void metric_sofia(char **buf)
 	if (buf_reg) prometheus_asprintf(buf, PROMETHEUS_FMT_SOFIA_PROFILE_REGISTRATIONS_S, buf_reg);
 
 end:
-	switch_safe_free(stream.data)
-	switch_safe_free(buf_info)
-	switch_safe_free(buf_calls)
-	switch_safe_free(buf_reg)
+	switch_safe_free(stream.data);
+	switch_safe_free(buf_info);
+	switch_safe_free(buf_calls);
+	switch_safe_free(buf_reg);
 	if (xml) switch_xml_free(xml);
+}
+
+static void metric_rtp(char **buf)
+{
+	prometheus_profile_t *p;
+	char *buf_rtp_in = NULL, *buf_rtp_out = NULL;
+
+	for (p = globals.profiles; p; p = p->next)
+	{
+		prometheus_asprintf(&buf_rtp_in, PROMETHEUS_FMT_RTP_IN_BYTES, p->name, p->rtp_in_bytes);
+		prometheus_asprintf(&buf_rtp_out, PROMETHEUS_FMT_RTP_OUT_BYTES, p->name, p->rtp_out_bytes);
+	}
+	if (buf_rtp_in) prometheus_asprintf(buf, PROMETHEUS_FMT_RTP_IN_BYTES_S, buf_rtp_in);
+	if (buf_rtp_out) prometheus_asprintf(buf, PROMETHEUS_FMT_RTP_OUT_BYTES_S, buf_rtp_out);
+
+	switch_safe_free(buf_rtp_in);
+	switch_safe_free(buf_rtp_out);
 }
 
 static int prometheus_handler(void *cls, struct MHD_Connection *connection, const char *url, const char *method,
@@ -289,6 +355,7 @@ static int prometheus_handler(void *cls, struct MHD_Connection *connection, cons
 	metric_sessions(&body);
 	metric_sofia(&body);
 	metric_sofia_gateway(&body);
+	metric_rtp(&body);
 
 	response = MHD_create_response_from_buffer(strlen(body), (void *)body, MHD_RESPMEM_MUST_FREE);
 	MHD_add_response_header(response, "Content-Type", "text/plain");
@@ -296,6 +363,38 @@ static int prometheus_handler(void *cls, struct MHD_Connection *connection, cons
 	MHD_destroy_response(response);
 
 	return ret;
+}
+
+static void on_event_channel_hangup_complete(switch_event_t *event)
+{
+	switch_event_header_t * hp = NULL;
+	prometheus_profile_t *profile = NULL;
+	const char *profile_name = NULL;
+	uint value;
+
+	if ((hp = switch_event_get_header_ptr(event, "variable_sofia_profile_name"))) {
+		profile_name = hp->value;
+	}
+
+	if (switch_strlen_zero(profile_name)) return;
+
+	profile = prometheus_get_profile_ptr(profile_name);
+	if (!profile) {
+		profile = switch_core_alloc(globals.pool, sizeof(prometheus_profile_t));
+		profile->name = switch_core_strdup(globals.pool, profile_name);
+
+		prometheus_profile_add(&globals.profiles, profile);
+	}
+
+	if ((hp = switch_event_get_header_ptr(event, "variable_rtp_audio_in_raw_bytes"))) {
+		value = switch_atoui(hp->value);
+		profile->rtp_in_bytes += value;
+	}
+
+	if ((hp = switch_event_get_header_ptr(event, "variable_rtp_audio_out_raw_bytes"))) {
+		value = switch_atoui(hp->value);
+		profile->rtp_out_bytes += value;
+	}
 }
 
 static switch_xml_config_item_t configs[] = {
@@ -323,6 +422,8 @@ SWITCH_MODULE_LOAD_FUNCTION(mod_prometheus_load)
 
 	if (do_config() != SWITCH_STATUS_SUCCESS) return SWITCH_STATUS_FALSE;
 
+	globals.pool = pool;
+
 	addr.sin_family = AF_INET;
 	addr.sin_port = htons(globals.port);
 	addr.sin_addr.s_addr = inet_addr(globals.ip);
@@ -336,10 +437,13 @@ SWITCH_MODULE_LOAD_FUNCTION(mod_prometheus_load)
 									  MHD_OPTION_END);
 	if (globals.daemon == NULL) return SWITCH_STATUS_FALSE;
 
+	switch_event_bind(modname, SWITCH_EVENT_CHANNEL_HANGUP_COMPLETE, SWITCH_EVENT_SUBCLASS_ANY, on_event_channel_hangup_complete, NULL);
+
 	return SWITCH_STATUS_SUCCESS;
 }
 
 SWITCH_MODULE_SHUTDOWN_FUNCTION(mod_prometheus_shutdown) {
+	switch_event_unbind_callback(on_event_channel_hangup_complete);
 	if (globals.daemon)	MHD_stop_daemon(globals.daemon);
 	return SWITCH_STATUS_SUCCESS;
 }

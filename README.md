@@ -67,3 +67,10 @@ make install
 | `freeswitch_sofia_profile_registrations`       | Current registrations               |
 | `freeswitch_sofia_profile_gateway_info`        | Information about the sofia gateway |
 | `freeswitch_sofia_profile_gateway_calls_total` | Total number of gateway calls       |
+
+### RTP
+
+| Name                       | Description                                |
+| -------------------------- | ------------------------------------------ |
+| `freeswitch_rtp_in_bytes`  | Total number of incoming rtp size in bytes |
+| `freeswitch_rtp_out_bytes` | Total number of outgoing rtp size in bytes |
